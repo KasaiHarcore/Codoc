@@ -12,6 +12,7 @@ from app.task.task_process import PlainTask, Task
 from script import utils as app_utils
 from script.log import log_and_print
 
+# Define abstract base class for raw tasks
 class RawTask(ABC):
     @property
     @abstractmethod
@@ -27,7 +28,7 @@ class RawTask(ABC):
         raise NotImplementedError("abstract base class")
 
 # Open-source repository
-class Github(RawTask):
+class Github(RawTask): # Github class is a subclass of RawTask
     def __init__(
         self,
         task_id: str,
@@ -42,7 +43,7 @@ class Github(RawTask):
         self.clone_link, self.commit_hash, _ = self.fetch_github_repo(repo_url)
         self.setup_dir = setup_dir
         self.clone_path = pjoin(self.setup_dir, self.task_id)
-        self.readme = app_utils.read_readme_file(self.clone_path)
+        self.readme = None
         self.clone_repo()
 
     @property
@@ -111,6 +112,7 @@ class Github(RawTask):
         return clone_url, commit_hash, default_branch
 
     def to_task(self) -> PlainTask:
+        self.readme = app_utils.read_readme_file(self.clone_path)
         return PlainTask(
             commit_hash = self.commit_hash,
             local_path = self.clone_path,
@@ -163,9 +165,3 @@ class Local(RawTask):
             commit_hash = self.commit_hash,
             local_path = self.local_repo,
         )
-
-# Đọc paper
-# def Research_paper(RawTask):
-#     def __init__(self):
-#         pass
-    
