@@ -4,7 +4,7 @@ from collections.abc import MutableMapping
 from search import search_utils
 from search.search_utils import SearchResult
 
-from app.rag.const import (
+from app.globals import (
     EXCLUDE_DIRS,
     ALLOW_FILES
 )
