@@ -20,62 +20,87 @@ from script.doc_extracting import (
     check_doc_gen,
 )
 
-SYSTEM_PROMPT = """You are a software developer with multiple experience in other engineer position in technology maintaining a large project.
-You are working on an open-source project with multiple contributors and there's no fully explained documentation.
+SYSTEM_PROMPT = """
+You are a seasoned software developer with extensive experience in various engineering positions within the technology sector, particularly in maintaining large projects. 
+You are working on an open-source project with multiple contributors, and there is no comprehensive documentation available.
 The context contains a description marked between <read> and </read>.
-Your task is to invoke a few search API calls to gather information, then write a comprehensive document to guild a 12 year-old kids with based knowledge how to use the project and give them a deep understanding of the project.
+Your task is to invoke a few search API calls to gather information, then write a documents to guide a junior developer with basic knowledge on how to use and understand the project.
 """
 
+USER_PROMPT_INIT = """
+Write a comprehensive documents with key points for the entire project, based on the retrieved context. Focus on each function in the code, how they connect, and how they depend on each other. 
 
-USER_PROMPT_INIT = """Write a documents for the entire project, based on the retrieved context. Focus on every function inside the code, how it connect, how it depend on each other\n\nYou can import necessary libraries, using what you need for it.\n\n
-Return the documents in the format below.\n\nWithin `<file></file>`, replace `...` with actual file path.\n\nWithin `<previous></previous>`, replace `...` with the previous response snippet or leave it blank if it's the first write.\n\nWithin `<patched></patched>`, replace `...` with the newest version of the document. When adding and updated documents, (for coding example please pay attention to indentation, as the code is in Python.)
-You can write multiple modifications if needed.
+Return the document in the format below. Replace `...` with the actual file path within `<file></file>`, and the content of the document within `<content></content>`.
 
-- After finish writing introduction and basic explain of the codebase, you have to write:
-    + Explain deeply how each function work, variable type, ...
-    + Depending level of each file (Base on which file it call from, the library, running order,...)
-    + A code to drawing workflow using Python graphviz library
-    + Some running example with the code, remember to pass a REAL variable
+- In your document, you should:
+    + Provide a detailed explanation of functions, variables, etc.
+    + Reconstruct and explain the code workflow and function relationships (if possible, otherwise skip)
+    + Describe the hierarchy and dependency of each file (based on which file calls which, libraries, execution order, etc.)
+    + Include a description of the codebase structure and app architecture in text or code (flowchart, diagram, etc.)
+    + Emphasize clarity and educational value, keeping in mind that the primary audience is junior developers.
+    + Use concrete examples and illustrations to aid understanding.
+    + Detail mechanisms and best practices.
+    + Highlight the modularity and reusability of the code components.
+    + Provide a good structure and organization of the document.
+    + DO NOT MAKEUP ANY INFORMATION. IF YOU CANNOT FIND THE INFORMATION, REPORT WHERE YOU CAN'T DO IT THEN SKIP.
 
+- The output should look like this:
 
-# Version 1
 <file>...</file>
-<previous>...</previous>
-<patched>...</patched>
+<content>...</content>
 
-Function:
-File Location: <location that contain the function>
-- <function 1> (var1: type, var2: type,...): describe it here
-    + <var1: type>: Describe the variable effect, what can it do, what it control
-    + <var2: type>: ...
-- <function 2> (...): ...
-    + <var1: type>: ...
-    + ...
+- Example structure guide:
 
-Depending Level:
-- ...
+**IN THE BEGINNING OF THE DOCUMENT:**
 
-Workflow:
-```python
-...
-```
+0. Project Overview:
+    - Project Name: ...
+    - Project Description: ...
+    - Project Goal: ...
+    - Project Scope: ...
+    
+**MIDDLE**
 
-Running Example:
-- ...
-- ...
+1. Functions or Classes:
+    - File Location: <location containing the function/class/variable>
+    - Starting Line: <line number>
+    - <function 1> (var1: type, var2: type, ...):
+        + <var_included: type>: (Describe what this variable does and its effect)
+        + ...
+    Explanation: (Detailed explanation of what this function does, how it works, and how it connects with other functions, variables, classes, etc.)
+    Example: (Provide a usage example or snippet if possible.)
+    
+    - File Location: ...
+    - Starting Line: ...
+    - <function 2> (...): ...
+        + <var: ...>: ...
+        + ...
+    * Repeat for all functions and classes in the codebase.
 
-# Version 2
-... Same as above if there's more than 1 time you have to write it
+2. Connections between files:
+    - Function1 calls Function2 in File1
+    - File1 depends on File2
+    - Class1 inherits from Class2 in File3
+    - ...
 
-# Version ...
+3. Summary:
+    - Summarize the entire project from start to end
+    - Mention key takeaways and overall architecture
+    
+4. Flow of Execution:
+    - ...
 
+**IN THE END OF THE DOCUMENT:**
+
+5. Flowchart
+    - Describe the code flow using text, flowcharts, diagrams, etc. Use the method you think best explains the workflow.
 """
 
 
 def run_with_retries(
     message_thread: MessageThread,
     output_dir: str,
-    retries = 3,
+    retries: int = 5,
     print_callback: Callable[[dict], None] | None = None,
 ) -> tuple[str, float, int, int]:
     """
@@ -89,19 +114,14 @@ def run_with_retries(
 
     # (2) add the initial user prompt
     new_thread.add_user(USER_PROMPT_INIT)
-    print_px(USER_PROMPT_INIT, "Documents generation", print_callback = print_callback)
+    print_px(USER_PROMPT_INIT, "Documents generation", print_callback=print_callback)
 
-    can_stop = False
     result_msg = ""
 
-    for i in range(1, retries + 2):
-        if i > 1:
-            debug_file = pjoin(output_dir, f"agent_write_doc_{i - 1}.json")
-            with open(debug_file, "w") as f:
-                json.dump(new_thread.to_msg(), f, indent=4)
-
-        if can_stop or i > retries:
-            break
+    for i in range(1, retries + 1):
+        debug_file = pjoin(output_dir, f"agent_write_doc_{i}.json")
+        with open(debug_file, "w") as f:
+            json.dump(new_thread.to_msg(), f, indent=4)
 
         logger.info(f"Trying to write a doc. Try {i} of {retries}.")
 
@@ -118,35 +138,37 @@ def run_with_retries(
             f.write(res_text)
 
         print_doc_generation(
-            res_text, f"try {i} / {retries}", print_callback = print_callback
+            res_text, f"try {i} / {retries}", print_callback=print_callback
         )
 
-        # Attemp to extract a real doc from the raw doc
+        # Attempt to extract a real doc from the raw doc
         diff_file = pjoin(output_dir, f"extracted_doc_{i}.diff")
         extract_doc = check_doc_gen(raw_doc_file)
 
-        # record the extract doc. This is for classifying the task at the end of workflow
+        # record the extracted doc. This is for classifying the task at the end of the workflow
         record_extract_doc(output_dir, extract_doc)
 
         doc_content = Path(diff_file).read_text()
         print_px(
             f"```\n{doc_content}\n```",
             "Extracted doc",
-            print_callback = print_callback,
+            print_callback=print_callback,
         )
 
         if extract_doc != ExtractDoc.RAW_DOC_GENERATED:
-            # we dont have a valid docs
-            new_prompt = (
-                "Task could not be finished."
-            )
+            # we don't have a valid doc
+            new_prompt = "Task could not be finished."
             new_thread.add_user(new_prompt)
             print_px(
                 new_prompt,
                 f"Doc generation try {i} / {retries}",
-                print_callback = print_callback,
+                print_callback=print_callback,
             )
-            result_msg = "Failed to write valid one."
+            result_msg = "Failed to write a valid one."
+        else:
+            result_msg = "Successfully wrote a valid doc."
+            break
 
     return result_msg
+
 
