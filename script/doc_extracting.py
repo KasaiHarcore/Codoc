@@ -5,14 +5,14 @@ Post-process the output of the inference workflow.
 import json
 import os
 import shutil
-from collections import defaultdict
-from collections.abc import Mapping
+import subprocess
 from enum import Enum
 from glob import glob
 from os.path import join as pjoin
 from shutil import move
 
-from api.doc_utils import parse_edits
+from script import utils as apputils
+from api.doc_utils import parse_document_changes, apply_document_changes
 
 
 def count_and_organize_tasks(
@@ -70,13 +70,14 @@ class ExtractDoc(str, Enum):
     as comparing them, hashing them, and generating directory names based on the
     status.
     """
-    NO_DOCS = "NO_PATCH"
+    NO_DOCS = "NO_DOCS"
     IS_VALID_JSON = "IS_VALID_JSON"
     RAW_DOC_GENERATED = "RAW_DOC_GENERATED"
     NOT_VALID_JSON = "NOT_VALID_JSON"
-    CODE_MATCHED_BUT_EMPTY_DIFF = "CODE_MATCHED_BUT_EMPTY_DIFF"
-    CODE_MATCHED_BUT_EMPTY_ORIGIN = "CODE_MATCHED_BUT_EMPTY_ORIGIN"
-    # APPLICABLE_CODE = "APPLICABLE_CODE"
+    MATCHED_BUT_EMPTY_ORIGIN = "MATCHED_BUT_EMPTY_ORIGIN"
+    MATCHED_BUT_EMPTY_DIFF = "MATCHED_BUT_EMPTY_DIFF"
+    RAW_DOCS_BUT_UNMATCHED = "RAW_DOCS_BUT_UNMATCHED"
+    RAW_DOCS_BUT_UNPARSED = "RAW_DOCS_BUT_UNPARSED"
     FINISHED = "FINISHED"
     
 
@@ -84,9 +85,10 @@ class ExtractDoc(str, Enum):
         order = [
             self.NO_DOCS,
             self.RAW_DOC_GENERATED,
-            self.CODE_MATCHED_BUT_EMPTY_DIFF,
-            self.CODE_MATCHED_BUT_EMPTY_ORIGIN,
-            # self.APPLICABLE_CODE,
+            self.RAW_DOCS_BUT_UNPARSED,
+            self.RAW_DOCS_BUT_UNMATCHED,
+            self.MATCHED_BUT_EMPTY_ORIGIN,
+            self.MATCHED_BUT_EMPTY_DIFF,
         ]
         self_index = order.index(self)
         other_index = order.index(other)
@@ -108,14 +110,14 @@ class ExtractDoc(str, Enum):
 
 def record_extract_doc(individual_expr_dir: str, extract_doc: ExtractDoc):
     """
-    Ghi lại trạng thái trích xuất tài liệu vào tệp.
+    Record the document extraction status into a file.
     """
     record_file = pjoin(individual_expr_dir, "extract_doc.json")
     try:
         with open(record_file, "r") as f:
             record = json.load(f)
     except FileNotFoundError:
-        record = {"extract_doc": []}  # Nếu tệp chưa tồn tại, tạo mới
+        record = {"extract_doc": []}  # If the file does not exist, create a new one
 
     record["extract_doc"].append(extract_doc.value)
     with open(record_file, "w") as f:
@@ -124,7 +126,7 @@ def record_extract_doc(individual_expr_dir: str, extract_doc: ExtractDoc):
 
 def read_extract_doc(individual_expr_dir: str) -> tuple[ExtractDoc | None, int]:
     """
-    Đọc trạng thái trích xuất tài liệu từ tệp. Trả về trạng thái tốt nhất và chỉ số của nó.
+    Read the document extraction status from the file. Return the best status and its index.
     """
     record_file = pjoin(individual_expr_dir, "extract_doc.json")
     try:
@@ -135,16 +137,16 @@ def read_extract_doc(individual_expr_dir: str) -> tuple[ExtractDoc | None, int]:
             best_idx = all_doc.index(best_doc)
             return best_doc, best_idx
     except FileNotFoundError:
-        return None, -1  # Không tìm thấy tệp, trả về None
+        return None, -1  # File not found, return None
 
 
 def get_final_doc_version(individual_expr_dir: str) -> str | None:
     """
-    Lấy phiên bản cuối cùng từ thư mục thí nghiệm.
+    Get the final version from the experiment directory.
     """
     best_doc, best_index = read_extract_doc(individual_expr_dir)
     if best_doc is None or best_doc != ExtractDoc.FINISHED:
-        return None  # Không tìm thấy trạng thái "FINISHED"
+        return None  # Did not find the 'FINISHED' status
 
     best_patch_name = f"extracted_patch_{best_index + 1}.diff"
     final_patch_path = pjoin(individual_expr_dir, best_patch_name)
@@ -153,7 +155,7 @@ def get_final_doc_version(individual_expr_dir: str) -> str | None:
 
 def check_doc_gen(raw_doc_file: str) -> tuple[ExtractDoc, str]:
     """
-    Kiểm tra xem tài liệu đã được tạo hay chưa và trả về trạng thái trích xuất.
+    Check whether the document has been created and return the extraction status.
     """
     task_dir = os.path.dirname(raw_doc_file)
     meta_file = pjoin(task_dir, "meta.json")
@@ -167,35 +169,116 @@ def check_doc_gen(raw_doc_file: str) -> tuple[ExtractDoc, str]:
         doc_content = f.read()
 
     try:
-        parse_edits(doc_content)
+        parse_document_changes(doc_content)
         status, message = ExtractDoc.FINISHED, ""
     except Exception as e:
         status, message = ExtractDoc.RAW_DOC_GENERATED, f"Exception {e} happened when parsing edits."
     return status, message
 
-
-def organize_experiment_results(expr_dir: str):
+def extract_document_changes(
+    raw_document_file: str, extracted_file: str, standalone_mode: bool = False
+) -> tuple[ExtractDoc, str]:
     """
-    Giả sử các bản tài liệu đã được giải nén, hãy sắp xếp kết quả thử nghiệm
-    thư mục thành một vài danh mục và di chuyển chúng đến đó.
+    Extract changes made to a document instance.
+    Args:
+        - raw_document_file: Path to the raw document file produced by model.
+        - extracted_file: Path where the extracted changes file goes.
+        - standalone_mode: If True, the function is called from the special --extract-changes mode.
+                           Specify this to True if using this function as it is for testing.
+    Returns:
+        - ExtractDoc.
+        - An additional string containing more explanation on how document changes extraction failed.
+          If everything is successful, this string is empty.
     """
-    # (1) tìm tất cả các thư mục thử nghiệm nhiệm vụ
-    task_exp_names = [
-        x
-        for x in os.listdir(expr_dir)
-        if os.path.isdir(pjoin(expr_dir, x))
-        and "__" in x  # để lọc các thư mục khác như "applicable_doc"
-    ]
-    task_exp_dirs = [pjoin(expr_dir, x) for x in task_exp_names]
-
-    # start organizing
-    for extract_doc in ExtractDoc:
-        os.makedirs(extract_doc.to_dir_name(expr_dir), exist_ok=True)
-
-    for task_dir in task_exp_dirs:
-        extract_doc, _ = read_extract_doc(task_dir)
-        corresponding_dir = extract_doc.to_dir_name(expr_dir)
-        shutil.move(task_dir, corresponding_dir)
+    # (1) get the meta data for this task
+    task_dir = os.path.dirname(raw_document_file)
+    meta_file = pjoin(task_dir, "meta.json")
+    with open(meta_file) as f:
+        meta = json.load(f)
+    task_info = meta["task_info"]
+    setup_info = meta["setup_info"]
+    repo_path = setup_info["repo_path"]  # the project dir
+    base_commit = task_info["base_commit"]  # the commit to checkout
+    if not os.path.isfile(raw_document_file):
+        return ExtractDoc.NO_DOCS, "No raw document file is found."
+    with open(raw_document_file) as f:
+        content = f.read()
+    # (2) try parsing the edits
+    try:
+        edits = parse_document_changes(content)
+    except Exception as e:
+        return (
+            ExtractDoc.RAW_DOCS_BUT_UNPARSED,
+            f"Exception {e} happend when parsing edits.",
+        )
+    if not edits:
+        return ExtractDoc.RAW_DOCS_BUT_UNPARSED, "No edits can be parsed."
+    # (3) edit parsed. check whether it can match the original document
+    with apputils.cd(repo_path):
+        if standalone_mode:
+            # in special --extract-doc mode
+            apputils.repo_reset_and_clean_checkout(base_commit)
+        else:
+            # extracting patch in the write_patch loop
+            # we should not reset to base commit, because previous we created a new commit
+            # containing the test_patch content. We should just clean the changes until HEAD.
+            apputils.repo_clean_changes()
+        # try to match and apply each edit
+        unmatched_edit_indexes = []
+        for idx, edit in enumerate(edits):
+            # NOTE: do not clean here, since we want to accumulate changes from all edits
+            target_file = edit.filename
+            # find the target file. The model may only use the short name of the file,
+            # so we need to search for it here
+            found_file = apputils.find_file(repo_path, target_file)
+            if found_file is None:
+                unmatched_edit_indexes.append(idx)
+                continue
+            # try to apply this edit and update the actual file content
+            applied_file = apply_document_changes(edit, found_file)
+            if applied_file is None:
+                unmatched_edit_indexes.append(idx)
+                continue
+        if len(unmatched_edit_indexes) == len(edits):
+            # non of the edits can be matched
+            # there is obvious error, and we definitely cannot extract patch
+            apputils.repo_clean_changes()
+            return (
+                ExtractDoc.RAW_DOCS_BUT_UNMATCHED,
+                "None of the edits can match the original document.",
+            )
+        # let's have a message describing which edits can be matched
+        if unmatched_edit_indexes:
+            unmatched_msg = f"Edits number {','.join([str(x+1) for x in unmatched_edit_indexes])} cannot be matched to the original document. "
+        else:
+            unmatched_msg = ""
+        # at this point, at least some of the edits could be applied (some others may be unmatched)
+        # we first try to get the diff
+        diff = apputils.run_command(
+            ["git", "diff"], stdout=subprocess.PIPE
+        ).stdout.decode()
+        # After extracting diff, we have nothing more to do in the actual code base
+        apputils.repo_clean_changes()
+        if not diff:
+            # diff file is empty, meaning the patched document is the same as original
+            # effectively, there is no edits that matched and introduced a real diff
+            msg = (
+                unmatched_msg
+                + "The matched edits do not introduce any change to the document."
+            )
+            return ExtractDoc.MATCHED_BUT_EMPTY_DIFF, msg
+        edits_with_empty_before = [
+            str(idx + 1) for idx, edit in enumerate(edits) if not edit.before.strip()
+        ]
+        if edits_with_empty_before:
+            numbers = ", ".join(edits_with_empty_before)
+            msg = f"Please contain **non-whitespace** original document snippet in edits number {numbers}."
+            return ExtractDoc.MATCHED_BUT_EMPTY_ORIGIN, msg
+        # the edits resulted in a non-empty diff. We should at least save and return it
+        with open(extracted_file, "w") as f:
+            f.write(diff)
+        # if all edits are matched, the `unmatched_msg` is empty string
+        return ExtractDoc.FINISHED, unmatched_msg
 
 
 def is_valid_json(json_str: str) -> tuple[ExtractDoc, list | dict | None]:
