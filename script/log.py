@@ -67,7 +67,7 @@ def print_px(
     msg = replace_html_tags(msg)
     markdown = Markdown(msg)
 
-    name = "ProjectXplore"
+    name = "Codoc"
     if desc:
         title = f"{name} ({desc})"
     else:
@@ -84,7 +84,63 @@ def print_px(
 
     if print_callback:
         print_callback(
-            {"title": f"{name} ({desc})", "message": msg, "category": "Project_xplore"}
+            {"title": f"{name} ({desc})", "message": msg, "category": "Codoc"}
+        )
+        
+def print_chat(
+    msg: str, desc = "", print_callback: Callable[[dict], None] | None = None
+) -> None:
+    if not print_stdout:
+        return
+
+    name = "Chat Agent"
+    if desc:
+        title = f"{name} ({desc})"
+    else:
+        title = name
+
+    panel = Panel(
+        msg,
+        title=title,
+        title_align="left",
+        border_style="green",
+        width=WIDTH,
+    )
+    console.print(panel)
+
+    if print_callback:
+        print_callback(
+            {"title": f"{name} ({desc})", "message": msg, "category": "chat_agent"}
+        
+)
+        
+def print_user(
+    msg: str, desc = "", print_callback: Callable[[dict], None] | None = None
+) -> None:
+    if not print_stdout:
+        return
+
+    msg = replace_html_tags(msg)
+    markdown = Markdown(msg)
+
+    name = "User"
+    if desc:
+        title = f"{name} ({desc})"
+    else:
+        title = name
+
+    panel = Panel(
+        markdown,
+        title=title,
+        title_align="left",
+        border_style="cyan",
+        width=WIDTH,
+    )
+    console.print(panel)
+
+    if print_callback:
+        print_callback(
+            {"title": f"{name} ({desc})", "message": msg, "category": "user"}
         )
 
 
