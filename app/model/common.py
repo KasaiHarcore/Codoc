@@ -28,6 +28,7 @@ class Model(ABC):
         self.cost_per_output: float = cost_per_output
         # whether the model supports parallel tool call
         self.parallel_tool_call: bool = parallel_tool_call
+        self.vector_store = None
 
     @abstractmethod
     def check_api_key(self) -> str:
@@ -96,3 +97,5 @@ def set_model(model_name: str):
 # the model temperature to use
 # For OpenAI models: this value should be from 0 to 2
 MODEL_TEMP: float = 0.0
+MODEL_CHUNK_SIZE: int = 2056
+MODEL_CHUNK_OVERLAP: int = 256

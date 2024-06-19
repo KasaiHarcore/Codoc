@@ -1,10 +1,11 @@
-from app.model import claude, common, gpt, ollama, groq, gg
+from app.model import claude, common, gpt, ollama, groq
 
 
 def register_all_models() -> None:
     """
     Register all models. This is called in main.
     """
+    # API models
     common.register_model(gpt.Gpt4_Turbo20240409())
     common.register_model(gpt.Gpt4_0125Preview())
     common.register_model(gpt.Gpt4_1106Preview())
@@ -21,18 +22,15 @@ def register_all_models() -> None:
     common.register_model(claude.Claude2_1())
     common.register_model(claude.Claude2_0())
     common.register_model(claude.Claude_Instant())
-
-    common.register_model(ollama.Llama3_8B())
-    common.register_model(ollama.Llama3_70B())
     
     common.register_model(groq.Llama3_8B())
     common.register_model(groq.Llama3_70B())
-    common.register_model(groq.Llama2_70B())
     common.register_model(groq.Mixtral_8x7B())
     common.register_model(groq.Gemma_7B())
     
-    common.register_model(gg.Gemini_Pro())
-    common.register_model(gg.Gemini_1_5_Pro())
+    # Local models
+    common.register_model(ollama.Llama3_8B())
+    common.register_model(ollama.Llama3_70B())
 
     # register default model as selected
     common.SELECTED_MODEL = gpt.Gpt35_Turbo0125()

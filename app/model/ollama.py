@@ -67,12 +67,12 @@ class OllamaModel(Model):
         """
         # localhost is used when (1) running both ACR and ollama on host machine; and
         #   (2) running ollama in host, and ACR in container with --net=host
-        local_client = ollama.Client(host="http://localhost:11434")
+        local_client = ollama.Client(host = "http://localhost:11434")
         # docker_host_client is used when running ollama in host and ACR in container, and
         # Docker Desktop is installed
-        docker_host_client = ollama.Client(host="http://host.docker.internal:11434")
+        docker_host_client = ollama.Client(host = "http://host.docker.internal:11434")
         try:
-            local_client.chat(model=self.name, messages=[])
+            local_client.chat(model = self.name, messages = [])
             self.client = local_client
             return
         except httpx.ConnectError:
@@ -105,7 +105,7 @@ class OllamaModel(Model):
     def call(
         self,
         messages: list[dict],
-        top_p=1,
+        top_p = 1,
         tools=None,
         response_format: Literal["text", "json_object"] = "text",
         **kwargs,
@@ -133,19 +133,19 @@ class OllamaModel(Model):
                 # give more stop words and lower max_token for json mode
                 options.update({"stop": json_stop_words, "num_predict": 128})
                 response = self.client.chat(
-                    model=self.name,
-                    messages=cast(list[Message], messages),
-                    format="json",
-                    options=cast(Options, options),
-                    stream=False,
+                    model = self.name,
+                    messages = cast(list[Message], messages),
+                    format = "json",
+                    options = cast(Options, options),
+                    stream = False,
                 )
             else:
                 options.update({"stop": stop_words, "num_predict": 1024})
                 response = self.client.chat(
-                    model=self.name,
-                    messages=cast(list[Message], messages),
-                    options=cast(Options, options),
-                    stream=False,
+                    model = self.name,
+                    messages = cast(list[Message], messages),
+                    options = cast(Options, options),
+                    stream = False,
                 )
 
             assert isinstance(response, Mapping)

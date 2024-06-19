@@ -69,7 +69,7 @@ class AnthropicModel(Model):
     def call(
         self,
         messages: list[dict],
-        top_p=1,
+        top_p = 1,
         tools=None,
         response_format: Literal["text", "json_object"] = "text",
         **kwargs,
@@ -86,7 +86,7 @@ class AnthropicModel(Model):
                 model=self.name,
                 messages=messages,
                 temperature=common.MODEL_TEMP,
-                max_tokens=1024,
+                max_tokens=4096,
                 top_p=top_p,
                 stream=False,
             )

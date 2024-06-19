@@ -72,55 +72,60 @@ class GroqModel(Model):
     def call(
         self,
         messages: list[dict],
-        top_p=1,
-        tools=None,
+        top_p: float = 1,
+        tools = None,
         response_format: Literal["text", "json_object"] = "text",
+        chat_mode: Literal[True, False] = False,
         **kwargs,
     ):
         """
         Calls the Groq API to generate completions for the given inputs.
         """
+        
+        if chat_mode:
+            pass
         # FIXME: ignore tools field since we don't use tools now
-        try:
-            # groq models - prefilling response with { increase the success rate
-            # of producing json output
-            prefill_content = "{"
-            if response_format == "json_object":  # prefill
-                messages.append({"role": "assistant", "content": prefill_content})
+        else:
+            try:
+                # groq models - prefilling response with { increase the success rate
+                # of producing json output
+                prefill_content = "{"
+                if response_format == "json_object":  # prefill
+                    messages.append({"role": "assistant", "content": prefill_content})
 
-            response = litellm.completion(
-                model=self.name,
-                messages=messages,
-                temperature=common.MODEL_TEMP,
-                max_tokens=1024,
-                top_p=top_p,
-                stream=False,
-            )
-            assert isinstance(response, ModelResponse)
-            resp_usage = response.usage
-            assert resp_usage is not None
-            input_tokens = int(resp_usage.prompt_tokens)
-            output_tokens = int(resp_usage.completion_tokens)
-            cost = self.calc_cost(input_tokens, output_tokens)
+                response = litellm.completion(
+                    model=self.name,
+                    messages=messages,
+                    temperature=common.MODEL_TEMP,
+                    max_tokens=4096,
+                    top_p=top_p,
+                    stream=False,
+                )
+                assert isinstance(response, ModelResponse)
+                resp_usage = response.usage
+                assert resp_usage is not None
+                input_tokens = int(resp_usage.prompt_tokens)
+                output_tokens = int(resp_usage.completion_tokens)
+                cost = self.calc_cost(input_tokens, output_tokens)
 
-            common.thread_cost.process_cost += cost
-            common.thread_cost.process_input_tokens += input_tokens
-            common.thread_cost.process_output_tokens += output_tokens
+                common.thread_cost.process_cost += cost
+                common.thread_cost.process_input_tokens += input_tokens
+                common.thread_cost.process_output_tokens += output_tokens
 
-            first_resp_choice = response.choices[0]
-            assert isinstance(first_resp_choice, Choices)
-            resp_msg: Message = first_resp_choice.message
-            content = self.extract_resp_content(resp_msg)
-            if response_format == "json_object":
-                # prepend the prefilled character
-                if not content.startswith(prefill_content):
-                    content = prefill_content + content
-            return content, cost, input_tokens, output_tokens
+                first_resp_choice = response.choices[0]
+                assert isinstance(first_resp_choice, Choices)
+                resp_msg: Message = first_resp_choice.message
+                content = self.extract_resp_content(resp_msg)
+                if response_format == "json_object":
+                    # prepend the prefilled character
+                    if not content.startswith(prefill_content):
+                        content = prefill_content + content
+                return content, cost, input_tokens, output_tokens
 
-        except BadRequestError as e:
-            if e.code == "context_length_exceeded":
-                log_and_print("Context length exceeded")
-            raise e
+            except BadRequestError as e:
+                if e.code == "context_length_exceeded":
+                    log_and_print("Context length exceeded")
+                raise e
 
 class Llama3_8B(GroqModel):
     def __init__(self):
@@ -136,13 +141,6 @@ class Llama3_70B(GroqModel):
         )
         self.note = "Llama lastest model with 70B params"
         
-class Llama2_70B(GroqModel):
-    def __init__(self):
-        super().__init__(
-            "groq/llama2-70b-4096", 0, 0, parallel_tool_call=True # Price not mentioned on website
-        )
-        self.note = "The predecessor of Llama3, still a formidable model with 70B params"
-        
 class Mixtral_8x7B(GroqModel):
     def __init__(self):
         super().__init__(
@@ -156,4 +154,3 @@ class Gemma_7B(GroqModel):
             "groq/gemma-7b-it", 0.0000001, 0.0000001, parallel_tool_call=True
         )
         self.note = "A state-of-the-art open model from Google, boasting 7B parameters"
-        
