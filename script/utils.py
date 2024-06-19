@@ -10,8 +10,7 @@ from subprocess import CalledProcessError
 
 from script.log import log_and_print
 
-IMPORTANT_FILES = {'README.md', 'LICENSE', 'requirements.txt', 'setup.py', '.gitignore', 'main.py', 'run.py'}
-IMPORTANT_EXTENSIONS = {'.py', '.ipynb', '.md', '.yml', '.yaml', '.json'}
+from app.globals import EXCLUDE_DIRS, EXCLUDE_FILES, ALLOW_FILES
 
 
 @contextlib.contextmanager
@@ -326,43 +325,48 @@ def read_readme_file(file_path: str) -> str:
             with open(pjoin(file_path, readme_format), "r") as f:
                 return f.read()
         except FileNotFoundError:
-            pass
+            log_and_print(f"README file {readme_format} not found in {file_path}")
 
     return None
             
         
 def get_directory_structure(root_dir: str, max_depth: int = 3, max_items: int = 10) -> str:
     """
-    Generate the directory structure with warnings for important files.
+    Generate the directory structure of a codebase, excluding specified directories and files.
     """
     structure = []
     root_path = Path(root_dir)
 
-    def recurse(directory, prefix='', depth=0):
+    def recurse(directory: Path, prefix: str = '', depth: int = 0):
         if depth > max_depth:
             return
 
         contents = sorted(directory.iterdir(), key=lambda p: (p.is_file(), p.name))
-        if len(contents) > max_items:
-            contents = contents[:max_items]
-            contents.append("...")
+        filtered_contents = []
 
         for path in contents:
+            if path.is_dir() and path.name not in EXCLUDE_DIRS:
+                filtered_contents.append(path)
+            elif path.is_file() and path.suffix in ALLOW_FILES and path.name not in EXCLUDE_FILES:
+                filtered_contents.append(path)
+
+        if len(filtered_contents) > max_items:
+            filtered_contents = filtered_contents[:max_items]
+            filtered_contents.append("...")
+
+        for i, path in enumerate(filtered_contents):
             if path == "...":
-                structure.append(f"{prefix}{path}")
+                structure.append(f"{prefix}- {path}")
                 continue
 
+            connector = "- " if i == len(filtered_contents) - 1 else "|- "
             name = path.name
-            is_important = (
-                name in IMPORTANT_FILES 
-                or path.suffix.lower() in IMPORTANT_EXTENSIONS
-            )
 
             if path.is_dir():
-                structure.append(f"{prefix}├── {name}/" + (" (IMPORTANT)" if is_important else ""))
-                recurse(path, prefix + "│   ", depth + 1)
+                structure.append(f"{prefix}{connector}{name}/")
+                recurse(path, prefix + ("  " if i == len(filtered_contents) - 1 else "| "), depth + 1)
             else:
-                structure.append(f"{prefix}└── {name}" + (" (IMPORTANT)" if is_important else ""))
+                structure.append(f"{prefix}{connector}{name}")
 
     structure.append(f"{root_path.name}/")
     recurse(root_path)
