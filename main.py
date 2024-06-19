@@ -23,35 +23,53 @@ from app.model.register import register_all_models
 from script.doc_extracting import (
     get_final_doc_version,
 )
-from app.task.tasks import Github, Local, RawTask
+from app.task.tasks import Github, RawTask, Local
 from app.task.task_process import Task
+
+from app.rag.chat import chat
+from app.rag import util
 
 
 def get_args(
     from_command_line_str: str = None, subparser_dest_attr_name: str = "command"
 ):
     parser = ArgumentParser()
-    subparsers = parser.add_subparsers(dest=subparser_dest_attr_name)
+    subparsers = parser.add_subparsers(dest = subparser_dest_attr_name)
 
     github_parser = subparsers.add_parser(
         "github-code",
         help = "Run online github codebase",
     )
     set_github_parser_args(github_parser)
+    
+    chat_parser = subparsers.add_parser(
+        "chat",
+        help = "Run in chat mode."
+    )
+    set_chat_parser_args(chat_parser)
 
-    local_parser = subparsers.add_parser("local-code", help = "Run on local codebase.")
+    local_parser = subparsers.add_parser(
+        "local-code", 
+        help = "Run on local codebase.")
+    
     set_local_parser_args(local_parser)
     
-    # paper_parser = subparsers.add_parser("paper", help = "Run on research paper / research article.")
-    # set_paper_parser_args(paper_parser)
-    
-
     if not from_command_line_str:
         return parser.parse_args()
     return parser.parse_args(from_command_line_str.split())
 
 
 def main(args, subparser_dest_attr_name: str = "command"):
+    """
+    Main function that handles different subcommands based on the value of `subparser_dest_attr_name`.
+
+    Args:
+        args: Command-line arguments passed to the script.
+        subparser_dest_attr_name: Name of the attribute in `args` that determines the subcommand.
+
+    Returns:
+        None
+    """
 
     ## common options
     globals.output_dir = args.output_dir
@@ -67,9 +85,12 @@ def main(args, subparser_dest_attr_name: str = "command"):
     common.MODEL_TEMP = args.model_temperature
     globals.conv_round_limit = args.conv_round_limit
     globals.enable_layered = args.enable_layered
-
+    common.MODEL_CHUNK_OVERLAP = args.chunk_overlap
+    common.MODEL_CHUNK_SIZE = args.chunk_size
+    
     subcommand = getattr(args, subparser_dest_attr_name)
     if subcommand == "github-code":
+        # Setup directory for GitHub task
         setup_dir = args.setup_dir
         if setup_dir is not None:
             setup_dir = abspath(setup_dir)
@@ -78,23 +99,35 @@ def main(args, subparser_dest_attr_name: str = "command"):
             
         print("Setup location: ", setup_dir)
 
+        # Create GitHub task
         task = Github(
             args.task_id,
             args.clone_link,
             args.commit_hash,
-            repo_url = args.clone_link[:-4],
-            setup_dir = setup_dir,
+            repo_url=args.clone_link[:-4],
+            setup_dir=setup_dir,
         )
         groups = {"github": [task]}
+        
         run_task_groups(groups, num_processes)
         
+    elif subcommand == "chat":
+        print("Starting chat mode")
+        util.ROOT_DIR = args.document_folder
+        chat(args.model)
+            
+        
+    # Work in progress
     elif subcommand == "local-code":
+        # Local repository 
         local_repo = args.local_repo
         if local_repo is not None:
             local_repo = abspath(local_repo)
         code_folder = args.code_folder
         if issue_file is not None:
             issue_file = abspath(issue_file)
+        
+        # Create Local task
         task = Local(
             args.task_id,
             local_repo,
@@ -103,13 +136,6 @@ def main(args, subparser_dest_attr_name: str = "command"):
         groups = {"local": [task]}
         run_task_groups(groups, num_processes)
         
-    # elif subcommand == "paper":
-    #     paper_file = args.paper_file
-    #     if paper_file is not None:
-    #         paper_file = abspath(paper_file)
-    #     pass
-
-
 def set_github_parser_args(parser: ArgumentParser) -> None:
     add_task_related_args(parser)
     parser.add_argument(
@@ -128,7 +154,14 @@ def set_github_parser_args(parser: ArgumentParser) -> None:
         type=str,
         help="The directory where repositories should be cloned to.",
     )
-
+    
+def set_chat_parser_args(parser: ArgumentParser) -> None:
+    add_task_related_args(parser)
+    parser.add_argument(
+        "--document-folder",
+        type=str,
+        help="The folder where the documents are stored.",
+    )
 
 def set_local_parser_args(parser: ArgumentParser) -> None:
     add_task_related_args(parser)
@@ -139,17 +172,6 @@ def set_local_parser_args(parser: ArgumentParser) -> None:
         "--local-repo", type = str, help = "Path to a local copy of the target repo."
     )
     parser.add_argument("--local-file", type = str, help = "Path to a local code file.")
-    
-    
-# def set_paper_parser_args(parser: ArgumentParser) -> None:
-#     add_task_related_args(parser)
-#     parser.add_argument(
-#         "--task-id", type=str, help = "Assign an id to the current research paper task."
-#     )
-#     parser.add_argument(
-#         "--paper-file", type=str, help = "Path to a local copy of the research paper."
-#     )
-#     parser.add_argument("--issue-file", type=str, help="Path to a local code file.")
 
 
 def add_task_related_args(parser: ArgumentParser) -> None:
@@ -175,12 +197,24 @@ def add_task_related_args(parser: ArgumentParser) -> None:
         "--model-temperature",
         type=float,
         default=0.0,
-        help="The model temperature to use, for OpenAI models.",
+        help="The temperature for the model.",
+    )
+    parser.add_argument(
+        "--chunk-size",
+        type=int,
+        default=2056,
+        help="The chunk size for the model.",
+    )
+    parser.add_argument(
+        "--chunk-overlap",
+        type=int,
+        default=256,
+        help="The chunk overlap for the model.",
     )
     parser.add_argument(
         "--conv-round-limit",
         type=int,
-        default=15,
+        default=10,
         help="Conversation round limit for the main agent.",
     )
     parser.add_argument(
