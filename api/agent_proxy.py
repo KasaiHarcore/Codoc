@@ -17,18 +17,18 @@ PROXY_PROMPT = """
 You are a helpful assistant that retreive API calls from a text into json format.
 The text will consist of two parts:
 1. do we need more context?
-2. do you have enough information to start writing a comprehensive document?
+2. do you have enough information to start writing a good summary document?
 Extract API calls from question 1 and confirmation from question 2.
 
 The API calls include:
-extract_fullcode(file_path: str)
-search_method_in_class(method_name: str, class_name: str)
-search_method_in_file(method_name: str, file_path: str)
-search_method(method_name: str)
-search_class_in_file(self, class_name, file_name: str)
-search_class(class_name: str)
-search_code_in_file(code_str: str, file_path: str)
-search_code(code_str: str)
+- extract_fullcode(file_path: str)
+- search_method_in_class(method_name: str, class_name: str)
+- search_method_in_file(method_name: str, file_path: str)
+- search_method(method_name: str)
+- search_class_in_file(self, class_name, file_name: str)
+- search_class(class_name: str)
+- search_code_in_file(code_str: str, file_path: str)
+- search_code(code_str: str)
 
 Provide your answer in JSON structure like this, you should ignore the argument placeholders in api calls.
 For example, search_code(code_str="str") should be search_code("str")
