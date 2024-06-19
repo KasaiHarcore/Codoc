@@ -23,9 +23,9 @@ from search.search_manage import SearchManager
 from script.utils import parse_function_invocation, get_directory_structure
 
 # FIXME: the system prompt should be different for stratified/state machine.
-SYSTEM_PROMPT = """You are a software developer with multiple experience in other engineer position in technology maintaining a large project.
+SYSTEM_PROMPT = """You are a software developer with multiple experience in other fields in technology maintaining a large project.
 You are working on an open-source project with multiple contributors and there's no fully explained documentation.
-The README.md file contains a description marked between <read> and </read>.
+The README.md file contains some basic information marked between <read> and </read>.
 Your task is to invoke a few search API calls to gather information, then write a comprehensive document to guild people how to use the project and give them a deep understanding of the project.
 """
 
@@ -51,6 +51,7 @@ def prepare_readme_prompt(readme: str, path: str) -> str:
     # add code structure folder
     result += "\nCodebase folder structure:\n"
     sts = get_directory_structure(path)
+    print_description(f"Codebase folder structure:\n{sts}")
     result += sts
     return result
 
@@ -76,7 +77,6 @@ def start_conversation_round_stratified(
     msg_thread: MessageThread,
     api_manager: ProjectApiManager,
     start_round_no: int = 0,
-    file_path: str = None,  # Add this line if needed
     print_callback: Callable[[dict], None] | None = None,
 ) -> bool:
     """
@@ -94,9 +94,10 @@ def start_conversation_round_stratified(
         "\n- search_method(method_name: str): Search for a method in the entire codebase"
         "\n- search_code(code_str: str): Search for a code snippet in the entire codebase"
         "\n- search_code_in_file(code_str: str, file_path: str): Search for a code snippet in a given file file"
-        "\n\n- DO NOT SKIP ANY FILE BECAUSE IT WILL CONTAIN A LOT IMPORTANT INFORMATION, please analyze everything before decided"
-        "\n\n- Note that you can use multiple search APIs in one round."
-        "\n\n- Now analyze the issue and select necessary APIs to get more context of the project. Each API call must have concrete arguments as inputs."
+        "\n\n- DO NOT SKIP ANY NONE SPECIAL FILES BECAUSE IT MAYBE CONTAIN A LOT IMPORTANT INFORMATION, PLEASE ANALYZE CAREFULLY BEFORE DECIDE"
+        "\n\n- You can make multiple API calls in a single round. Please make sure to provide concrete arguments for each API call."
+        "\n\n- Focus on the folder structure to make a right file_path"
+        "\n\n- Now analyze the codebase and select necessary APIs to get more context of the project. Each API call must have concrete arguments as inputs."
     )
     msg_thread.add_user(prompt)
 
@@ -213,10 +214,10 @@ def start_conversation_round_stratified(
             msg = (
                 "Based on your analysis, answer below questions:"
                 "\n- do we need more context: construct search API calls to get more context of the project. (leave it empty if you don't need more context)"
-                "\n- do you have enough information to start writing a comprehensive document? (leave it empty if you don't have enough information)"
+                "\n- do you have enough information to start writing a comprehensive document?"
             )
             if isinstance(common.SELECTED_MODEL, ollama.OllamaModel):
-                # llama models tend to always output search APIs and buggy locations.
+                # llama models tend to always output both.
                 msg += "\n\nNOTE: If you have understand and have a deep knowledge about the context and code, do not make any search API calls."
             msg_thread.add_user(msg)
             print_px(
