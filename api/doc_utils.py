@@ -18,31 +18,30 @@ from pylint.reporters.text import TextReporter
 @dataclass
 class Edit:
     filename: str
-    before: str
-    after: str
+    result: str
 
     def __str__(self):
-        return f"{self.filename}\nBefore:\n{pformat(self.before)}\nAfter:\n{pformat(self.after)}\n"
+        return f"{self.filename}\nResults:\n{pformat(self.result)}\n"
 
     def __repr__(self):
         return str(self)
 
 
-def parse_edits(chat_string: str) -> list[Edit]:
+def parse_document_changes(chat_string: str) -> list[Edit]:
     """
-    Parse edits from a chat string.
+    Parse changes from a chat string.
 
-    This function extracts code edits from a chat string and returns them as a list
+    This function extracts code changes from a chat string and returns them as a list
     of Edit objects.
 
     Args:
-        chat_string (str): The chat content containing code edits.
+        chat_string (str): The chat content containing code changes.
 
     Returns:
-        List[Edit]: A list of Edit objects representing the parsed code edits.
+        List[Edit]: A list of Edit objects representing the parsed code changes.
     """
-
-    def parse_in_fence(lines: list[str]):
+    
+    def parsing(lines: list[str]):
         """
         New version of parsing multiple edits within one fence.
         """
@@ -52,10 +51,8 @@ def parse_edits(chat_string: str) -> list[Edit]:
 
         file_start = "<file>"
         file_end = "</file>"
-        original_start = "<prev_docs>"
-        original_end = "</prev_docs>"
-        patched_start = "</new_docs>"
-        patched_end = "</new_docs>"
+        original_start = "<content>"
+        original_end = "</content>"
 
         all_edits: list[Edit] = []
         content = "\n".join(lines)
@@ -63,14 +60,12 @@ def parse_edits(chat_string: str) -> list[Edit]:
         # use regex to find content between <file> and </file>
         file_pattern = re.compile(f"{file_start}(.*?){file_end}", re.DOTALL)
         original_pattern = re.compile(f"{original_start}(.*?){original_end}", re.DOTALL)
-        patched_pattern = re.compile(f"{patched_start}(.*?){patched_end}", re.DOTALL)
 
         file_matches = file_pattern.findall(content)
         original_matches = original_pattern.findall(content)
-        patched_matches = patched_pattern.findall(content)
 
-        for file, original, patched in zip(
-            file_matches, original_matches, patched_matches
+        for file, original in zip(
+            file_matches, original_matches
         ):
             # for file, we strip all spaces
             file = file.strip()
@@ -79,107 +74,62 @@ def parse_edits(chat_string: str) -> list[Edit]:
             # However, we should remove the new lines at start and end. These new lines may be
             # inserted by the model
             original = original.strip("\n")
-            patched = patched.strip("\n")
-            all_edits.append(Edit(file, original, patched))
+            all_edits.append(Edit(file, original))
 
         return all_edits
 
     edits = []
-    current_edit = []
-    in_fence = False
 
     for line in chat_string.split("\n"):
-        if line.startswith("```") and in_fence:
-            edits.extend(parse_in_fence(current_edit))
-            current_edit = []
-            in_fence = False
-            continue
-        elif line.startswith("```") and not in_fence:
-            in_fence = True
-            continue
-        if in_fence:
-            current_edit.append(line)
+        edits.extend(parsing(line))
 
     return edits
 
 
-def apply_edit(edit: Edit, file_path: str) -> str | None:
+def apply_document_changes(edit: Edit, file_path: str) -> str | None:
     """
-    Apply one Edit to a file. This function reads the file, tries to match
-    the before string (after stripping spaces in the original program and the
-    before string improve the chance of matching), and then replaces the matched region with the after string.
+    Apply one Edit to a document. This function reads the document, tries to match
+    the original string (after stripping spaces in the original document and the
+    original string to improve the chance of matching), and then replaces the matched region with the updated string.
     Returns:
-        - Path to the file containing updated content if successful;
+        - Path to the document containing updated content if successful;
           None otherwise.
     """
-    with open(file_path) as f:
-        orig_prog_lines = f.readlines()
+    with open(file_path, 'r') as f:
+        orig_doc_lines = f.readlines()
 
-    before = edit.before
-    after = edit.after
+    results = edit.result
 
-    # check whether before is in the original program
-    before_lines = before.split("\n")
-    # NOTE: These are just for matching; do not use to form back the program
-    cleaned_before_lines = [line.strip() for line in before_lines]
-    cleaned_orig_lines = [line.strip() for line in orig_prog_lines]
-    # match before in the original program
+    # check whether original is in the original document
+    results_lines = results.split("\n")
+    # NOTE: These are just for matching; do not use to form back the document
+    cleaned_orig_lines = [line.strip() for line in orig_doc_lines]
+    cleaned_results_lines = [line.strip() for line in results_lines]
+    # match original in the original document
     match_start = -1
     match_end = -1
-    for i in range(len(cleaned_orig_lines) - len(cleaned_before_lines) + 1):
-        # check all possible starting positions in the orig program
+    for i in range(len(cleaned_orig_lines) - len(cleaned_results_lines) + 1):
+        # check all possible starting positions in the orig document
         if (
-            cleaned_orig_lines[i : i + len(cleaned_before_lines)]
-            == cleaned_before_lines
+            cleaned_orig_lines[i : i + len(cleaned_results_lines)]
+            == cleaned_results_lines
         ):
             match_start = i
-            match_end = i + len(cleaned_before_lines)
+            match_end = i + len(cleaned_results_lines)
             break
     if match_start == -1:
-        # cound not find a match
+        # could not find a match
         return None
 
-    # found a match, replace the matched region with after
+    # found a match, replace the matched region with updated
 
-    # First guess: in the patch, the indentation difference between the first line and
-    # subsequent lines are correct. In this case, first calculate the indentation difference
-    # between the first line of patch & original file; subsequent lines are all prepended with
-    # this difference.
-    matched_orig_region = orig_prog_lines[match_start:match_end]
-    after_lines = after.split("\n")
+    # form the new document
+    prefix = "".join(orig_doc_lines[:match_start])
+    suffix = "".join(orig_doc_lines[match_end:])
+    new_doc = prefix + "\n".join(results_lines) + "\n" + suffix
 
-    if before_lines[0] in matched_orig_region[0]:
-        abs_indent_of_first_line = matched_orig_region[0].index(before_lines[0])
-        fixed_after_lines = [
-            " " * abs_indent_of_first_line + line for line in after_lines
-        ]
-    else:
-        # will raise if cannot find
-        abs_indent_of_first_line = before_lines[0].index(
-            matched_orig_region[0].rstrip("\n")
-        )
-        fixed_after_lines = [line[abs_indent_of_first_line:] for line in after_lines]
-
-    # form the new program
-    prefix = "".join(orig_prog_lines[:match_start])
-    suffix = "".join(orig_prog_lines[match_end:])
-
-    new_prog_1 = prefix + "\n".join(fixed_after_lines) + "\n" + suffix
-
-    # Second guess: the absolute indentation of the second to last lines are correct. In this case,
-    # simply fix the indentation of the first line.
-    fixed_after_lines[1:] = after_lines[1:]
-    new_prog_2 = prefix + "\n".join(fixed_after_lines) + "\n" + suffix
-
-    if lint_python_content(new_prog_1):
-        new_prog = new_prog_1
-    elif lint_python_content(new_prog_2):
-        new_prog = new_prog_2
-    else:
-        return None
-
-    with open(file_path, "w") as f:
-        f.write(new_prog)
+    with open(file_path, 'w') as f:
+        f.write(new_doc)
 
     return file_path
 
@@ -210,7 +160,7 @@ def lint_python_content(content: str) -> bool:
     pylint_out = Writable()
     reporter = TextReporter(pylint_out)
 
-    with NamedTemporaryFile(buffering=0) as f:
+    with NamedTemporaryFile(buffering = 0) as f:
         f.write(content.encode())
 
         _ = Run(["--errors-only", f.name], reporter=reporter, exit=False)
