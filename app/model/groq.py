@@ -154,3 +154,17 @@ class Gemma_7B(GroqModel):
             "groq/gemma-7b-it", 0.0000001, 0.0000001, parallel_tool_call=True
         )
         self.note = "A state-of-the-art open model from Google, boasting 7B parameters"
+        
+class Llama_31_70B(GroqModel):
+    def __init__(self):
+        super().__init__(
+            "groq/llama-3.1-70b-versatile", 0.0000001, 0.0000001, parallel_tool_call=True
+        )
+        self.note = "A state-of-the-art open model from Meta family, 70B parameters"
+        
+class Llama_31_8B_8192(GroqModel):
+    def __init__(self):
+        super().__init__(
+            "groq/llama-3.1-8b-instant", 0.0000001, 0.0000001, parallel_tool_call=True
+        )
+        self.note = "A state-of-the-art open model from Meta, boasting 8B parameters"

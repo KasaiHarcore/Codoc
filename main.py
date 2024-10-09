@@ -20,9 +20,6 @@ from script import utils as apputils
 from app.manage import ProjectApiManager
 from app.model import common
 from app.model.register import register_all_models
-from script.doc_extracting import (
-    get_final_doc_version,
-)
 from app.task.tasks import Github, RawTask, Local
 from app.task.task_process import Task
 
@@ -47,12 +44,6 @@ def get_args(
         help = "Run in chat mode."
     )
     set_chat_parser_args(chat_parser)
-
-    local_parser = subparsers.add_parser(
-        "local-code", 
-        help = "Run on local codebase.")
-    
-    set_local_parser_args(local_parser)
     
     if not from_command_line_str:
         return parser.parse_args()
@@ -162,16 +153,6 @@ def set_chat_parser_args(parser: ArgumentParser) -> None:
         type=str,
         help="The folder where the documents are stored.",
     )
-
-def set_local_parser_args(parser: ArgumentParser) -> None:
-    add_task_related_args(parser)
-    parser.add_argument(
-        "--task-id", type = str, help = "Assign an id to the current local code task."
-    )
-    parser.add_argument(
-        "--local-repo", type = str, help = "Path to a local copy of the target repo."
-    )
-    parser.add_argument("--local-file", type = str, help = "Path to a local code file.")
 
 
 def add_task_related_args(parser: ArgumentParser) -> None:
@@ -342,24 +323,20 @@ def run_raw_task(
         run_ok = do_inference(task.to_task(), task_output_dir, args.setup_dir, print_callback)
 
         if run_ok:
-            run_status_message = f"Task {task_id} completed successfully."
+            log.log_and_always_print(f"Task {task_id} completed successfully.")
+            log.log_and_always_print(
+            f"Please find the generated documents at: {args.output_dir}."
+            )
+            return run_ok
         else:
-            run_status_message = f"Task {task_id} failed without exception."
+            log.log_and_always_print(f"Task {task_id} failed without exception.")
+            log.log_and_always_print(
+            f"Failed to generated documents."
+            )
+            return run_ok
     except Exception as e:
         logger.exception(e)
-        run_status_message = f"Task {task_id} failed with exception: {e}."
-
-    log.log_and_always_print(run_status_message)
-
-    final_doc_path = get_final_doc_version(task_output_dir)
-    if final_doc_path is not None:
-        log.log_and_always_print(
-            f"Please find the generated documents at: {final_doc_path}"
-        )
-    else:
-        log.log_and_always_print("No documents generated. You can try again.")
-
-    return run_ok
+        log.log_and_always_print(f"Task {task_id} failed with exception: {e}.")
 
 
 def do_inference(

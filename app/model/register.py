@@ -1,4 +1,4 @@
-from app.model import claude, common, gpt, ollama, groq
+from app.model import claude, common, gpt, ollama, groq, test
 
 
 def register_all_models() -> None:
@@ -14,7 +14,7 @@ def register_all_models() -> None:
     common.register_model(gpt.Gpt35_Turbo16k_0613())
     common.register_model(gpt.Gpt35_Turbo0613())
     common.register_model(gpt.Gpt4_0613())
-    common.register_model(gpt.Gpt4_O())
+    # common.register_model(gpt.Gpt4_O())
 
     common.register_model(claude.Claude3Opus())
     common.register_model(claude.Claude3Sonnet())
@@ -27,10 +27,16 @@ def register_all_models() -> None:
     common.register_model(groq.Llama3_70B())
     common.register_model(groq.Mixtral_8x7B())
     common.register_model(groq.Gemma_7B())
+    common.register_model(groq.Llama_31_70B())
+    common.register_model(groq.Llama_31_8B_8192())
     
     # Local models
     common.register_model(ollama.Llama3_8B())
     common.register_model(ollama.Llama3_70B())
+    
+    # Test models
+    common.register_model(test.Qwen_2())
+    common.register_model(test.LLama3())
 
     # register default model as selected
     common.SELECTED_MODEL = gpt.Gpt35_Turbo0125()

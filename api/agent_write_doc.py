@@ -14,93 +14,78 @@ from api import agent_common
 from script.data_structures import MessageThread
 from script.log import print_px, print_doc_generation
 from app.model import common
-from script.doc_extracting import (
-    ExtractDoc,
-    record_extract_doc,
-    check_doc_gen,
-)
 
 SYSTEM_PROMPT = """
 You are a seasoned software developer with extensive experience in various engineering positions within the technology sector, particularly in maintaining large projects. 
-You are working on an open-source project with multiple contributors, and there is no comprehensive documentation available.
-The context contains a description marked between <read> and </read>.
-Your task is to invoke a few search API calls to gather information, then write a documents to guide a junior developer with basic knowledge on how to use and understand the project.
+You are working on an open-source project with multiple contributors, and there is no guideline, document or code comments available.
+Your task is to guide a junior developer how to use and understand the project.
 """
 
 USER_PROMPT_INIT = """
-Write a comprehensive documents with key points for the entire project, based on the retrieved context. Focus on each function in the code, how they connect, and how they depend on each other. 
+Write a comprehensive documents for the entire project, based on the retrieved context. Focus on each function in the code, how they connect, and how they depend on each other. 
 
-Return the document in the format below. Replace `...` with the actual file path within `<file></file>`, and the content of the document within `<content></content>`.
-
-- In your document, you should:
-    + Provide a detailed explanation of functions, variables, etc.
-    + Reconstruct and explain the code workflow and function relationships (if possible, otherwise skip)
-    + Describe the hierarchy and dependency of each file (based on which file calls which, libraries, execution order, etc.)
-    + Include a description of the codebase structure and app architecture in text or code (flowchart, diagram, etc.)
+- In the document you made, MUST FOLLOW:
+    + Study the dependencies and libraries used in the project to understand the external tools and frameworks being utilized.
+    + Explain the code workflow and function relationships (if possible, otherwise skip).
+    + Describe the hierarchy and dependency of each lines (based on which code calls, libraries, execution order, etc.).
     + Emphasize clarity and educational value, keeping in mind that the primary audience is junior developers.
-    + Use concrete examples and illustrations to aid understanding.
-    + Detail mechanisms and best practices.
-    + Highlight the modularity and reusability of the code components.
-    + Provide a good structure and organization of the document.
-    + DO NOT MAKEUP ANY INFORMATION. IF YOU CANNOT FIND THE INFORMATION, REPORT WHERE YOU CAN'T DO IT THEN SKIP.
+    + Have a good structure and organization of the document.
 
-- The output should look like this:
+- Thing must HAVE in the document:
+    + Markdown file is preferred.
+    + Use headers, bullet points, code blocks, etc., to make the document clear and easy to read.
 
-<file>...</file>
-<content>...</content>
+STRUCTURE:
 
-- Example structure guide:
+```
+File name: ...
 
-**IN THE BEGINNING OF THE DOCUMENT:**
-
-0. Project Overview:
-    - Project Name: ...
-    - Project Description: ...
-    - Project Goal: ...
-    - Project Scope: ...
-    
-**MIDDLE**
+0. Code Overview:
+...
 
 1. Functions or Classes:
-    - File Location: <location containing the function/class/variable>
-    - Starting Line: <line number>
-    - <function 1> (var1: type, var2: type, ...):
-        + <var_included: type>: (Describe what this variable does and its effect)
-        + ...
-    Explanation: (Detailed explanation of what this function does, how it works, and how it connects with other functions, variables, classes, etc.)
-    Example: (Provide a usage example or snippet if possible.)
+- File Location: <location containing the function/class/variable>
+- Library import:
+    + Local library: <library 1>, <library 2>, ...
+    + 3rd party library: <library 1>, <library 2>, ...
+    + base library (build-in Python): <library 1>, <library 2>, ...
     
-    - File Location: ...
-    - Starting Line: ...
-    - <function 2> (...): ...
-        + <var: ...>: ...
+- <global variable 1>: <type> (if any)
+- ...
+    
+- <function 1> (var1: type, var2: type, ...) -> return_type:
+    + Breif explanation of what this function does
+    + Explain how it work on every line of code.
+- <function ...> ...
+    
+- <class 1>:
+    - <method 1> (var1: type, var2: type, ...) -> return_type:
+        + Same as <function>
+    
+    - <method 2> (...): ...
         + ...
-    * Repeat for all functions and classes in the codebase.
+        
+* Repeat for all functions and classes in the codebase.
+* The output here must have a form of API documents, with clear and concise explanations.
 
 2. Connections between files:
-    - Function1 calls Function2 in File1
-    - File1 depends on File2
-    - Class1 inherits from Class2 in File3
-    - ...
-
-3. Summary:
-    - Summarize the entire project from start to end
-    - Mention key takeaways and overall architecture
+- Function1 calls Function2 in File1
+- File1 depends on File2
+- Class1 inherits from Class2 in File3
+- ...
     
-4. Flow of Execution:
-    - ...
+3. Overall summary:
+...
 
-**IN THE END OF THE DOCUMENT:**
+```
 
-5. Flowchart
-    - Describe the code flow using text, flowcharts, diagrams, etc. Use the method you think best explains the workflow.
+REMEBER TO NOT MAKING THINGS UP. IF YOU DON'T KNOW, JUST SKIP IT AND WRITE (unidentified) INSTEAD.
 """
-
 
 def run_with_retries(
     message_thread: MessageThread,
     output_dir: str,
-    retries: int = 5,
+    retries: int = 1,
     print_callback: Callable[[dict], None] | None = None,
 ) -> tuple[str, float, int, int]:
     """
@@ -125,7 +110,7 @@ def run_with_retries(
 
         logger.info(f"Trying to write a doc. Try {i} of {retries}.")
 
-        raw_doc_file = pjoin(output_dir, f"agent_doc_raw_{i}")
+        raw_doc_file = pjoin(output_dir, f"agent_doc_raw_{i}.md")
 
         # actually calling model
         res_text, *_ = common.SELECTED_MODEL.call(new_thread.to_msg())
@@ -141,34 +126,14 @@ def run_with_retries(
             res_text, f"try {i} / {retries}", print_callback=print_callback
         )
 
-        # Attempt to extract a real doc from the raw doc
-        diff_file = pjoin(output_dir, f"extracted_doc_{i}.diff")
-        extract_doc = check_doc_gen(raw_doc_file)
-
-        # record the extracted doc. This is for classifying the task at the end of the workflow
-        record_extract_doc(output_dir, extract_doc)
-
-        doc_content = Path(diff_file).read_text()
+        doc_content = Path(raw_doc_file).read_text()
         print_px(
             f"```\n{doc_content}\n```",
             "Extracted doc",
             print_callback=print_callback,
         )
 
-        if extract_doc != ExtractDoc.RAW_DOC_GENERATED:
-            # we don't have a valid doc
-            new_prompt = "Task could not be finished."
-            new_thread.add_user(new_prompt)
-            print_px(
-                new_prompt,
-                f"Doc generation try {i} / {retries}",
-                print_callback=print_callback,
-            )
-            result_msg = "Failed to write a valid one."
-        else:
-            result_msg = "Successfully wrote a valid doc."
-            break
-
+    result_msg = "Doc generation successful."
     return result_msg
 
 

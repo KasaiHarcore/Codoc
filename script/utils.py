@@ -327,10 +327,10 @@ def read_readme_file(file_path: str) -> str:
         except FileNotFoundError:
             log_and_print(f"README file {readme_format} not found in {file_path}")
 
-    return None
+    return "README file not found."
             
         
-def get_directory_structure(root_dir: str, max_depth: int = 3, max_items: int = 10) -> str:
+def get_directory_structure(root_dir: str, max_depth: int = 5, max_items: int = 100) -> str:
     """
     Generate the directory structure of a codebase, excluding specified directories and files.
     """
