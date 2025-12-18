@@ -8,3 +8,4 @@ httpx
 ollama
 GitPython
 loguru
+sentence-transformers
