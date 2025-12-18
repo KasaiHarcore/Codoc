@@ -1,0 +1,49 @@
+[
+    {
+        "func_name": "extract_fullcode",
+        "arguments": {
+            "file_path": "182f280/1st Project OOP.py"
+        },
+        "call_ok": false
+    },
+    {
+        "func_name": "search_code",
+        "arguments": {
+            "code_str": "import mysql"
+        },
+        "call_ok": true
+    },
+    {
+        "func_name": "search_code",
+        "arguments": {
+            "code_str": "class"
+        },
+        "call_ok": false
+    },
+    {
+        "func_name": "search_code",
+        "arguments": {
+            "code_str": "def"
+        },
+        "call_ok": true
+    },
+    {
+        "func_name": "search_code",
+        "arguments": {
+            "code_str": "sqlite3"
+        },
+        "call_ok": false
+    },
+    {
+        "func_name": "extract_fullcode",
+        "arguments": {
+            "file_path": "1st Project OOP.py"
+        },
+        "call_ok": true
+    },
+    {
+        "func_name": "write_doc",
+        "arguments": {},
+        "call_ok": true
+    }
+]

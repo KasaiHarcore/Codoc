@@ -1,0 +1,20 @@
+[
+    [
+        {
+            "role": "system",
+            "content": "\nYou are a helpful assistant that retreive API calls from a text into json format.\nThe text will consist of two parts:\n1. do we need more context?\n2. do you have enough information to start writing a good summary document?\nExtract API calls from question 1 and confirmation from question 2.\n\nThe API calls include:\n- extract_fullcode(file_path: str)\n- search_method_in_class(method_name: str, class_name: str)\n- search_method_in_file(method_name: str, file_path: str)\n- search_method(method_name: str)\n- search_class_in_file(self, class_name, file_name: str)\n- search_class(class_name: str)\n- search_code_in_file(code_str: str, file_path: str)\n- search_code(code_str: str)\n\nProvide your answer in JSON structure like this, you should ignore the argument placeholders in api calls.\nFor example, search_code(code_str=\"str\") should be search_code(\"str\")\nsearch_method_in_file(\"method_name\", \"path.to.file\") should be search_method_in_file(\"method_name\", \"path/to/file\")\nMake sure each API call is written as a valid python expression.\n\n### NOTE\n- Return 1 if claim \"Yes\", else 0 for \"No\" for question 2.\n- Leave API_calls blank if there's no right call make in question 1.\n\n{\n    \"API_calls\": [\"api_call_1(args)\", \"api_call_2(args)\", ...],\n    \"Finish\": [1] | [0]\n}\n"
+        },
+        {
+            "role": "user",
+            "content": "**Do we need more context?** \u2013\u202fNo.  \nWe have retrieved the complete source of the only code file (`1st Project OOP.py`), the README snippet, and the folder layout. All the functions, globals, database schema expectations, and external\u2011service usage (MySQL, Gmail SMTP) are now visible, so we have sufficient information to produce a full developer guide.\n\n**Do we have enough information to start writing a comprehensive document?** \u2013\u202fYes. The code, its structure, and the required environment details are all available, allowing us to create a complete \u201chow\u2011to\u2011use\u201d and \u201cunderstand\u2011the\u2011project\u201d document for junior developers."
+        },
+        {
+            "role": "assistant",
+            "content": "{"
+        },
+        {
+            "role": "assistant",
+            "content": "{\n    \"API_calls\": [],\n    \"Finish\": [1]\n}"
+        }
+    ]
+]

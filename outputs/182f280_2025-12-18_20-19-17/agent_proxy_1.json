@@ -1,0 +1,20 @@
+[
+    [
+        {
+            "role": "system",
+            "content": "\nYou are a helpful assistant that retreive API calls from a text into json format.\nThe text will consist of two parts:\n1. do we need more context?\n2. do you have enough information to start writing a good summary document?\nExtract API calls from question 1 and confirmation from question 2.\n\nThe API calls include:\n- extract_fullcode(file_path: str)\n- search_method_in_class(method_name: str, class_name: str)\n- search_method_in_file(method_name: str, file_path: str)\n- search_method(method_name: str)\n- search_class_in_file(self, class_name, file_name: str)\n- search_class(class_name: str)\n- search_code_in_file(code_str: str, file_path: str)\n- search_code(code_str: str)\n\nProvide your answer in JSON structure like this, you should ignore the argument placeholders in api calls.\nFor example, search_code(code_str=\"str\") should be search_code(\"str\")\nsearch_method_in_file(\"method_name\", \"path.to.file\") should be search_method_in_file(\"method_name\", \"path/to/file\")\nMake sure each API call is written as a valid python expression.\n\n### NOTE\n- Return 1 if claim \"Yes\", else 0 for \"No\" for question 2.\n- Leave API_calls blank if there's no right call make in question 1.\n\n{\n    \"API_calls\": [\"api_call_1(args)\", \"api_call_2(args)\", ...],\n    \"Finish\": [1] | [0]\n}\n"
+        },
+        {
+            "role": "user",
+            "content": "**Do we need more context?** \u2013\u202fYes.  \nWe still don\u2019t know the exact file name(s) that contain the code (the path shown in the README may be slightly different \u2013 e.g., extra spaces, different case, hidden extensions, etc.). We need to locate the Python source files and then pull their full contents.\n\n**Search API calls to gather the missing context**\n\n```json\n{\n  \"search_code\": {\n    \"code_str\": \"import mysql\"\n  }\n}\n```\n\n```json\n{\n  \"search_code\": {\n    \"code_str\": \"class\"\n  }\n}\n```\n\n```json\n{\n  \"search_code\": {\n    \"code_str\": \"def\"\n  }\n}\n```\n\n```json\n{\n  \"search_code\": {\n    \"code_str\": \"sqlite3\"\n  }\n}\n```\n\nThese four calls will:\n\n1. Find any file that imports a MySQL connector (the project claims to use MySQL).  \n2. List every occurrence of the keyword `class` to reveal class definitions and the files they live in.  \n3. List every occurrence of the keyword `def` to reveal functions/methods and their file locations.  \n4. Check for any fallback use of `sqlite3` (sometimes developers keep a SQLite version for testing).\n\nOnce the search results return the exact file paths, we can run `extract_fullcode` on each discovered file and then proceed to write the comprehensive developer guide.  \n\n**Do we have enough information to start writing the document?** \u2013\u202fNo. We still need the actual source code (full file contents) before we can explain the architecture, usage, and how junior developers should interact with the project. The above searches will give us the missing context."
+        },
+        {
+            "role": "assistant",
+            "content": "{"
+        },
+        {
+            "role": "assistant",
+            "content": "{\n    \"API_calls\": [\n        \"search_code(\\\"import mysql\\\")\",\n        \"search_code(\\\"class\\\")\",\n        \"search_code(\\\"def\\\")\",\n        \"search_code(\\\"sqlite3\\\")\"\n    ],\n    \"Finish\": [0]\n}"
+        }
+    ]
+]

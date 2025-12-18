@@ -1,0 +1,13 @@
+{
+    "commit": "f5be13b4f0df1e84dadc6eb251a10339cec3ecb4",
+    "start_epoch": 1766089157.81514,
+    "end_epoch": 1766089285.111038,
+    "elapsed_seconds": 127.295898,
+    "model": "groq/openai/gpt-oss-120b",
+    "input_cost_per_token": 0.0,
+    "output_cost_per_token": 0.0,
+    "total_input_tokens": 19604,
+    "total_output_tokens": 9593,
+    "total_tokens": 29197,
+    "total_cost": 0.0
+}
