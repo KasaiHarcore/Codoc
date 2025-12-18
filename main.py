@@ -20,7 +20,7 @@ from script import utils as apputils
 from app.manage import ProjectApiManager
 from app.model import common
 from app.model.register import register_all_models
-from app.task.tasks import Github, RawTask, Local
+from app.task.tasks import Github, RawTask
 from app.task.task_process import Task
 
 from app.rag.chat import chat
@@ -106,26 +106,7 @@ def main(args, subparser_dest_attr_name: str = "command"):
         print("Starting chat mode")
         util.ROOT_DIR = args.document_folder
         chat(args.model)
-            
-        
-    # Work in progress
-    elif subcommand == "local-code":
-        # Local repository 
-        local_repo = args.local_repo
-        if local_repo is not None:
-            local_repo = abspath(local_repo)
-        code_folder = args.code_folder
-        if issue_file is not None:
-            issue_file = abspath(issue_file)
-        
-        # Create Local task
-        task = Local(
-            args.task_id,
-            local_repo,
-            issue_file,
-        )
-        groups = {"local": [task]}
-        run_task_groups(groups, num_processes)
+
         
 def set_github_parser_args(parser: ArgumentParser) -> None:
     add_task_related_args(parser)
