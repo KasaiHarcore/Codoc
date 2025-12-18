@@ -11,15 +11,7 @@ from rich.panel import Panel
 from rich.prompt import Prompt
 
 welcome_message_chat = """
-# Welcome to Codoc, this is the Mixture-of-Agents (MoA) test demo!
-
-Mixture of Agents (MoA) is a novel approach that leverages the collective strengths of multiple LLMs to enhance performance, achieving state-of-the-art results. By employing a layered architecture where each layer comprises several LLM agents, MoA significantly outperforms GPT-4 Omni’s 57.5% on AlpacaEval 2.0 with a score of 65.1%, using only open-source models!
-
-This demo uses the following LLMs as reference models, then passes the results to the aggregate model for the final response:
-- groq/llama3-8b-8192
-- groq/llama3-70b-8192
-- groq/mixtral-8x7b-32768
-- groq/gemma-7b-it
+# Welcome to Codoc, this is a test demo!
 """
 
 

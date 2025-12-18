@@ -60,15 +60,33 @@ class BaseRetrieval(ABC):
 
     def send_query(self, query: str) -> None:
         try:
-            result = self.qa.invoke({"query": query})
-        except Exception:
-            # Some langchain versions accept plain string.
-            result = self.qa.invoke(query)
+            try:
+                result = self.qa.invoke({"query": query})
+            except Exception:
+                # Some langchain versions accept plain string.
+                result = self.qa.invoke(query)
+        except Exception as e:
+            print_chat(f"Q: {query}\n\nRAG error: {type(e).__name__}: {e}")
+            return
 
-        answer = result.get("result", "")
-        sources = result.get("source_documents") or []
+        # LangChain return shapes vary by version and chain type.
+        # Common cases:
+        # - dict with keys: result/source_documents
+        # - dict with keys: answer/source_documents
+        # - plain string
+        answer = ""
+        sources = []
+        if isinstance(result, str):
+            answer = result
+        elif isinstance(result, dict):
+            sources = result.get("source_documents") or []
+            for key in ("result", "answer", "output_text", "text"):
+                val = result.get(key)
+                if isinstance(val, str) and val.strip():
+                    answer = val
+                    break
 
-        lines: list[str] = [f"Q: {query}", "", answer.strip()]
+        lines: list[str] = [f"Q: {query}", "", (answer or "").strip()]
         if sources:
             lines.append("\nSources:")
             seen = set()
@@ -81,6 +99,13 @@ class BaseRetrieval(ABC):
                 if len(snippet) > 240:
                     snippet = snippet[:240] + "…"
                 lines.append(f"- {src}: {snippet}")
+
+        # If retrieval worked but the model produced an empty answer,
+        # print lightweight diagnostics to help debugging.
+        if (not answer or not answer.strip()) and isinstance(result, dict):
+            keys = sorted([str(k) for k in result.keys()])
+            lines.append("\nDebug:")
+            lines.append(f"- Empty answer; result keys: {keys}")
 
         print_chat("\n".join(lines))
 

@@ -19,8 +19,6 @@ from app.globals import EXCLUDE_DIRS, EXCLUDE_FILES, ALLOW_FILES
 def cd(newdir):
     """
     Context manager for changing the current working directory
-    :param newdir: path to the new directory
-    :return: None
     """
     prevdir = os.getcwd()
     os.chdir(os.path.expanduser(newdir))
@@ -33,8 +31,6 @@ def cd(newdir):
 def run_command(cmd: list[str], **kwargs) -> subprocess.CompletedProcess:
     """
     Run a command in the shell.
-    Args:
-        - cmd: command to run
     """
     try:
         cp = subprocess.run(cmd, check=True, **kwargs)
@@ -88,9 +84,6 @@ def repo_commit_current_changes():
 def clone_repo(clone_link: str, dest_dir: str, cloned_name: str):
     """
     Clone a repo to dest_dir.
-
-    Returns:
-        - path to the newly cloned directory.
     """
     clone_cmd = ["git", "clone", clone_link, cloned_name]
     create_dir_if_not_exists(dest_dir)
@@ -105,9 +98,6 @@ def clone_repo_and_checkout(
 ):
     """
     Clone a repo to dest_dir, and checkout to commit `commit_hash`.
-
-    Returns:
-        - path to the newly cloned directory.
     """
     cloned_dir = clone_repo(clone_link, dest_dir, cloned_name)
     checkout_cmd = ["git", "checkout", commit_hash]
@@ -203,22 +193,14 @@ def run_string_cmd_in_conda(
 def create_dir_if_not_exists(dir_path: str):
     """
     Create a directory if it does not exist.
-    Args:
-        dir_path (str): Path to the directory.
     """
     if not os.path.exists(dir_path):
         os.makedirs(dir_path)
 
 
 def to_relative_path(file_path: str, project_root: str) -> str:
-    """Convert an absolute path to a path relative to the project root.
-
-    Args:
-        - file_path (str): The absolute path.
-        - project_root (str): Absolute path of the project root dir.
-
-    Returns:
-        The relative path.
+    """
+    Convert an absolute path to a path relative to the project root.
     """
     if Path(file_path).is_absolute():
         return str(Path(file_path).relative_to(project_root))
@@ -227,11 +209,8 @@ def to_relative_path(file_path: str, project_root: str) -> str:
 
 
 def to_absolute_path(file_path: str, project_root: str) -> str:
-    """Convert a relative path to an absolute path.
-
-    Args:
-        - file_path (str): The relative path.
-        - project_root (str): Absolute path of a root dir.
+    """
+    Convert a relative path to an absolute path.
     """
     return pjoin(project_root, file_path)
 
@@ -240,8 +219,6 @@ def find_file(directory, filename) -> str | None:
     """
     Find a file in a directory. filename can be short name, relative path to the
     directory, or an incomplete relative path to the directory.
-    Returns:
-        - the relative path to the file if found; None otherwise.
     """
 
     # Helper method one
