@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import inspect
 import json
 import re
@@ -6,7 +8,6 @@ from os.path import join as pjoin
 from pathlib import Path
 
 from loguru import logger
-from termcolor import colored
 from app import globals
 from app.manage import ProjectApiManager
 from script.data_structures import FunctionCallIntent, MessageThread
@@ -102,6 +103,7 @@ def start_conversation_round_stratified(
     msg_thread.add_user(prompt)
 
     round_no = start_round_no
+    collated_tool_response = ""
     for round_no in range(start_round_no, globals.conv_round_limit + 1):
         api_manager.start_new_tool_call_layer()
 
@@ -162,15 +164,10 @@ def start_conversation_round_stratified(
             print_callback=print_callback,
         )
 
-        # collected enough information to write patch
+        # collected enough information to write docs
         if finish and (not json_api_calls):
             print_banner("DOCS GENERATION")
-            logger.debug("Gathered enough information. Starting to created docs.")
-            print_px(
-                collated_tool_response,
-                "Doc generation round 1",
-                print_callback=print_callback,
-            )
+            logger.debug("Gathered enough information. Starting to create docs.")
             break
 
         # prepare response from tools

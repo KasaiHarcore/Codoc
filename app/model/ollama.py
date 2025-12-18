@@ -3,6 +3,8 @@ For models other than those from OpenAI, use LiteLLM if possible.
 Create all models managed by Ollama here, since they need to talk to ollama server.
 """
 
+from __future__ import annotations
+
 import sys
 from collections.abc import Mapping
 from copy import deepcopy

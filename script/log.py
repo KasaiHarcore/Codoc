@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import time
 from collections.abc import Callable
 from os import get_terminal_size

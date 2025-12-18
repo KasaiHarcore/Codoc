@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 A proxy agent. Process raw response into json format.
 """

@@ -1,7 +1,10 @@
+from __future__ import annotations
+
 import json
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pprint import pformat
+from typing import Optional
 
 from openai.types.chat import ChatCompletionMessageToolCall
 from openai.types.chat.chat_completion_message_tool_call import (
@@ -33,7 +36,7 @@ class FunctionCallIntent:
         self,
         func_name: str,
         arguments: Mapping[str, str],
-        openai_func: OpenaiFunction | None,
+        openai_func: Optional[OpenaiFunction],
     ):
         self.func_name = func_name
         self.arg_values = dict()

@@ -2,6 +2,8 @@
 An agent, which is only responsible for the write_docs tool call.
 """
 
+from __future__ import annotations
+
 import json
 from collections.abc import Callable
 from copy import deepcopy
@@ -92,12 +94,22 @@ def run_with_retries(
     Since the agent may not always write an applicable patch, we allow for retries.
     This is a wrapper around the actual run.
     """
-    # (1) replace system prompt
-    messages = deepcopy(message_thread.messages)
-    new_thread: MessageThread = MessageThread(messages=messages)
-    new_thread = agent_common.replace_system_prompt(new_thread, SYSTEM_PROMPT)
+    # Build a clean context thread for doc generation.
+    # The main conversation contains a lot of "API Calls" chatter that strongly biases
+    # the model to keep emitting API calls instead of producing the document.
+    cleaned = MessageThread(messages=[{"role": "system", "content": SYSTEM_PROMPT}])
 
-    # (2) add the initial user prompt
+    # Keep only the useful, factual context:
+    # - initial README + folder structure (<read>...)</n+    # - tool results ("Result of ...")
+    for m in message_thread.messages:
+        if m.get("role") != "user":
+            continue
+        content = m.get("content") or ""
+        if content.startswith("<read>") or content.startswith("Result of "):
+            cleaned.add_user(content)
+
+    # Add the initial user prompt
+    new_thread = cleaned
     new_thread.add_user(USER_PROMPT_INIT)
     print_px(USER_PROMPT_INIT, "Documents generation", print_callback=print_callback)
 

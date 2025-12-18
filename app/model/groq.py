@@ -68,7 +68,7 @@ class GroqModel(Model):
             return content
 
 
-    @retry(wait=wait_random_exponential(min=30, max=600), stop=stop_after_attempt(3))
+    @retry(wait=wait_random_exponential(min=30, max=100), stop=stop_after_attempt(3))
     def call(
         self,
         messages: list[dict],
@@ -127,44 +127,9 @@ class GroqModel(Model):
                     log_and_print("Context length exceeded")
                 raise e
 
-class Llama3_8B(GroqModel):
+class OpenAI_OSS_120B(GroqModel):
     def __init__(self):
         super().__init__(
-            "groq/llama3-8b-8192", 0.00000005, 0.00000010, parallel_tool_call=True
+            "groq/openai/gpt-oss-120b", 0.0000000, 0.0000000, parallel_tool_call=True
         )
-        self.note = "The champion of the Llama series with 8B params from Meta"
-        
-class Llama3_70B(GroqModel):
-    def __init__(self):
-        super().__init__(
-            "groq/llama3-70b-8192", 0.00000059, 0.00000079, parallel_tool_call=True
-        )
-        self.note = "Llama lastest model with 70B params"
-        
-class Mixtral_8x7B(GroqModel):
-    def __init__(self):
-        super().__init__(
-            "groq/mixtral-8x7b-32768", 0.00000027, 0.00000027, parallel_tool_call=True
-        )
-        self.note = "Balanced blend of speed and power from Mixtral team with 8 layers and 7B parameters"
-        
-class Gemma_7B(GroqModel):
-    def __init__(self):
-        super().__init__(
-            "groq/gemma-7b-it", 0.0000001, 0.0000001, parallel_tool_call=True
-        )
-        self.note = "A state-of-the-art open model from Google, boasting 7B parameters"
-        
-class Llama_31_70B(GroqModel):
-    def __init__(self):
-        super().__init__(
-            "groq/llama-3.1-70b-versatile", 0.0000001, 0.0000001, parallel_tool_call=True
-        )
-        self.note = "A state-of-the-art open model from Meta family, 70B parameters"
-        
-class Llama_31_8B_8192(GroqModel):
-    def __init__(self):
-        super().__init__(
-            "groq/llama-3.1-8b-instant", 0.0000001, 0.0000001, parallel_tool_call=True
-        )
-        self.note = "A state-of-the-art open model from Meta, boasting 8B parameters"
+        self.note = "OpenAI's open-source model with 120B parameters"

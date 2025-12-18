@@ -2,6 +2,8 @@
 The main driver.
 """
 
+from __future__ import annotations
+
 import os
 import json
 from argparse import ArgumentParser
@@ -64,8 +66,11 @@ def main(args, subparser_dest_attr_name: str = "command"):
 
     ## common options
     globals.output_dir = args.output_dir
-    if globals.output_dir is not None:
+    if globals.output_dir is None:
+        globals.output_dir = abspath("./outputs")
+    else:
         globals.output_dir = abspath(globals.output_dir)
+    apputils.create_dir_if_not_exists(globals.output_dir)
     num_processes: int = int(args.num_processes)
     # set whether brief or verbose log
     print_stdout: bool = not args.no_print
@@ -85,17 +90,20 @@ def main(args, subparser_dest_attr_name: str = "command"):
         setup_dir = args.setup_dir
         if setup_dir is not None:
             setup_dir = abspath(setup_dir)
-        else:
-            os.makedirs(setup_dir)
+        os.makedirs(setup_dir, exist_ok=True)
             
         print("Setup location: ", setup_dir)
 
         # Create GitHub task
+        repo_url = args.clone_link.rstrip("/")
+        if repo_url.endswith(".git"):
+            repo_url = repo_url[:-4]
+
         task = Github(
             args.task_id,
             args.clone_link,
             args.commit_hash,
-            repo_url=args.clone_link[:-4],
+            repo_url=repo_url,
             setup_dir=setup_dir,
         )
         groups = {"github": [task]}
@@ -125,6 +133,7 @@ def set_github_parser_args(parser: ArgumentParser) -> None:
         "--setup-dir",
         type=str,
         help="The directory where repositories should be cloned to.",
+        default="./setup_dirs"
     )
     
 def set_chat_parser_args(parser: ArgumentParser) -> None:
@@ -151,7 +160,7 @@ def add_task_related_args(parser: ArgumentParser) -> None:
     parser.add_argument(
         "--model",
         type=str,
-        default="gpt-3.5-turbo-0125",
+        default="groq/openai/gpt-oss-120b",
         choices=list(common.MODEL_HUB.keys()),
         help="The model to use. Currently only OpenAI models are supported.",
     )
@@ -223,7 +232,7 @@ def run_task_groups(
 
 def run_tasks_serial(tasks: list[RawTask]) -> None:
     for task in tasks:
-        run_task_in_subprocess(task)
+        run_raw_task(task)
 
 
 def run_task_groups_parallel(
@@ -246,7 +255,8 @@ def run_task_groups_parallel(
 
         group_ids, group_tasks = zip(*task_group_ids_items)
         with ProcessPoolExecutor(num_processes) as executor:
-            executor.map(run_task_group, group_ids, group_tasks)
+            # Consume the iterator so exceptions from workers propagate.
+            list(executor.map(run_task_group, group_ids, group_tasks))
     finally:
         log.print_with_time("Finishing all tasks in the pool.")
 
@@ -261,17 +271,12 @@ def run_task_group(task_group_id: str, task_group_items: list[RawTask]) -> None:
     )
     for task in task_group_items:
         # within a group, the runs are always sequential
-        run_task_in_subprocess(task)
+        run_raw_task(task)
         log.print_with_time(globals_mut.incre_task_return_msg())
 
     log.print_with_time(
         f"{globals_mut.incre_task_group_return_msg()} Finished task group {task_group_id}."
     )
-
-
-def run_task_in_subprocess(task: RawTask) -> None:
-    with ProcessPoolExecutor(max_workers=1) as executor:
-        executor.submit(run_raw_task, task)
 
 
 def run_raw_task(
@@ -301,12 +306,18 @@ def run_raw_task(
     run_ok = False
 
     try:
-        run_ok = do_inference(task.to_task(), task_output_dir, args.setup_dir, print_callback)
+        python_task = task.to_task()
+        run_ok = do_inference(
+            python_task,
+            task_output_dir,
+            python_task.project_path,
+            print_callback,
+        )
 
         if run_ok:
             log.log_and_always_print(f"Task {task_id} completed successfully.")
             log.log_and_always_print(
-            f"Please find the generated documents at: {args.output_dir}."
+            f"Please find the generated documents at: {globals.output_dir}."
             )
             return run_ok
         else:
@@ -318,6 +329,7 @@ def run_raw_task(
     except Exception as e:
         logger.exception(e)
         log.log_and_always_print(f"Task {task_id} failed with exception: {e}.")
+        return False
 
 
 def do_inference(

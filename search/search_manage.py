@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 from collections import defaultdict, namedtuple
 from collections.abc import MutableMapping
+from pathlib import Path
 
 from search import search_utils
 from search.search_utils import SearchResult
@@ -8,6 +11,8 @@ from app.globals import (
     EXCLUDE_DIRS,
     ALLOW_FILES
 )
+
+from script.utils import find_file
 
 LineRange = namedtuple("LineRange", ["start", "end"])
 
@@ -382,17 +387,38 @@ class SearchManager:
                 - A boolean indicating success or failure (True for success, False for failure).
         """
 
-        if any(excluded_dir in file_path for excluded_dir in EXCLUDE_DIRS) or not any(file_path.endswith(ext) for ext in ALLOW_FILES):
+        if any(excluded_dir in file_path for excluded_dir in EXCLUDE_DIRS) or not any(
+            file_path.endswith(ext) for ext in ALLOW_FILES
+        ):
             return "This file does not provide any useful information.", "File not allowed.", False
 
-        try:
-            with open(file_path, 'r') as file:
-                content = "```\n" + file.read() + "\n```"
-            return content, "File content extracted successfully.", True
-        except FileNotFoundError:
-            return "File not found.", "File not found.", False
-        except Exception as e:
-            return "There was an error while reading the file: " + str(e), "Error reading file.", False
+        candidate_paths: list[str] = []
+
+        p = Path(file_path)
+        if p.is_absolute():
+            candidate_paths.append(str(p))
+        else:
+            candidate_paths.append(str(Path(self.project_path) / file_path))
+            # Also try to locate by short name / fuzzy relative path within project.
+            found_rel = find_file(self.project_path, file_path)
+            if found_rel is not None:
+                candidate_paths.append(str(Path(self.project_path) / found_rel))
+
+        for candidate in candidate_paths:
+            try:
+                with open(candidate, "r") as file:
+                    content = "```\n" + file.read() + "\n```"
+                return content, "File content extracted successfully.", True
+            except FileNotFoundError:
+                continue
+            except Exception as e:
+                return (
+                    "There was an error while reading the file: " + str(e),
+                    "Error reading file.",
+                    False,
+                )
+
+        return "File not found.", "File not found.", False
 
 
     def search_method(self, method_name: str) -> tuple[str, str, bool]:
