@@ -1,0 +1,10 @@
+timeout_decorator
+rich
+langchain_core
+langchain_community
+litellm
+openai
+httpx
+ollama
+GitPython
+loguru
