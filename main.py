@@ -112,7 +112,7 @@ def main(args, subparser_dest_attr_name: str = "command"):
         
     elif subcommand == "chat":
         print("Starting chat mode")
-        util.ROOT_DIR = args.document_folder
+        util.set_root_dir(args.document_folder)
         chat(args.model)
 
         

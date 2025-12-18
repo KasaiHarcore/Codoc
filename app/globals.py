@@ -17,14 +17,14 @@ test_exec_timeout: int = 300
 
 # Folder can be skipped during the search
 EXCLUDE_DIRS = ['__pycache__', '.venv', '.git', '.idea', 'venv', 'env', 'node_modules', 'dist', 'build', '.vscode',
-                '.github', '.gitlab', 'CHANGELOG', 'changelog', 'docs', 'doc', 'test', 'tests', 'example', 'examples', 'docker',
+                '.github', '.gitlab', 'CHANGELOG', 'changelog', 'test', 'tests', 'example', 'examples', 'docker',
                 'version', 'versions', 'pynixify', 'www'
             ]
 
 # File extensions that can be searched
 ALLOW_FILES = ['.txt', '.js', '.mjs', '.ts', '.tsx', '.css', '.scss', '.less', '.html', '.htm', '.json', '.py',
                '.java', '.c', '.cpp', '.cs', '.go', '.php', '.rb', '.rs', '.swift', '.kt', '.scala', '.m', '.h',
-               '.sh', '.pl', '.pm','.lua']
+               '.sh', '.pl', '.pm','.lua', '.md']
 
 # File extensions that should be excluded from search
 EXCLUDE_FILES = [
